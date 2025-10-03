@@ -1,0 +1,23 @@
+[Unit]
+Description=KDE Connect Daemon for Device Communication
+Documentation=man:kdeconnect(1) https://userbase.kde.org/KDEConnect
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/kdeconnectd
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Resource limits
+MemoryMax=500M
+CPUQuota=50%
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

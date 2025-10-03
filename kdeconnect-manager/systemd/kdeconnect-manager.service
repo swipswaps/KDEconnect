@@ -1,0 +1,29 @@
+[Unit]
+Description=KDE Connect Manager Web Server
+Documentation=file:///path/to/kdeconnect-manager/README.md
+After=kdeconnect.service
+Requires=kdeconnect.service
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/kdeconnect-manager
+ExecStart=/usr/bin/python3 /path/to/kdeconnect-manager/backend/api/server.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment="PYTHONPATH=/path/to/kdeconnect-manager"
+Environment="FLASK_ENV=production"
+
+# Resource limits
+MemoryMax=1G
+CPUQuota=75%
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

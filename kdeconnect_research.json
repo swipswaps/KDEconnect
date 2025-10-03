@@ -1,0 +1,1571 @@
+{
+  "metadata": {
+    "title": "KDE Connect Comprehensive Research",
+    "date": "2025-10-03",
+    "version": "1.0",
+    "description": "Complete research on KDE Connect architecture, configuration, API usage, plugins, and best practices"
+  },
+  
+  "architecture": {
+    "overview": {
+      "description": "KDE Connect is a modular, UI-agnostic system for secure wireless communication between devices",
+      "design_principles": [
+        "Modular plugin-based architecture",
+        "UI-agnostic core library with DBus interfaces",
+        "Secure communication using TLS 1.2 and SFTP",
+        "Cross-platform support (Linux, Android, iOS, Windows, macOS)"
+      ],
+      "protocol": "Custom secure protocol based on JSON NetworkPackets",
+      "sources": [
+        "https://github.com/KDE/kdeconnect-kde",
+        "https://community.kde.org/KDEConnect",
+        "https://userbase.kde.org/KDEConnect"
+      ]
+    },
+    
+    "core_components": {
+      "link_providers": {
+        "description": "Manage device discovery and network connections",
+        "functions": [
+          "Device discovery via UDP broadcast",
+          "Bluetooth pairing support",
+          "LAN-based discovery",
+          "Secure link establishment using TLS"
+        ],
+        "protocols": ["UDP for discovery", "TCP for data transfer"]
+      },
+      
+      "devices": {
+        "description": "Abstraction layer representing paired devices",
+        "functions": [
+          "Manages device state and connections",
+          "Handles pairing requests",
+          "Bidirectional communication support",
+          "Device-specific plugin management"
+        ]
+      },
+      
+      "network_packets": {
+        "description": "JSON-serializable data structures for inter-device communication",
+        "format": {
+          "id": "Unique packet identifier",
+          "type": "Plugin type (e.g., 'clipboard', 'battery')",
+          "body": "Payload data as JSON object",
+          "version": "Protocol version (currently 5)",
+          "payloadSize": "Optional: Size of binary attachment",
+          "payloadTransferInfo": "Optional: Metadata for payload transfer"
+        },
+        "example": {
+          "id": 123456789,
+          "type": "kdeconnect.ping",
+          "body": {
+            "message": "Hello from device"
+          },
+          "version": 5
+        }
+      },
+      
+      "plugins": {
+        "description": "Independent modules implementing specific features",
+        "mechanism": "Exchange NetworkPackets for data communication",
+        "configuration": "Can be enabled/disabled per device",
+        "extensibility": "Easy to add new plugins without changing core protocol"
+      },
+      
+      "dbus_integration": {
+        "description": "Inter-component communication on Linux desktops",
+        "purpose": [
+          "UI elements interact with core daemon",
+          "No direct network handling in UI",
+          "Platform-agnostic interface",
+          "Support for non-Plasma desktops (via GSConnect)"
+        ],
+        "interface": "org.kde.kdeconnect",
+        "tools": ["QDBusViewer", "qdbus", "qdbusviewer"]
+      }
+    },
+    
+    "security": {
+      "encryption": {
+        "protocol": "TLS 1.2",
+        "key_algorithm": "RSA 2048-bit",
+        "purpose": "Encrypt all network traffic",
+        "certificate_generation": "Self-signed certificates with UUID as common name"
+      },
+      
+      "authentication": {
+        "method": "Certificate-based trust-on-first-use (TOFU)",
+        "pairing_process": [
+          "User-initiated pairing request",
+          "Mutual confirmation on both devices",
+          "Certificate exchange and storage",
+          "Optional PIN confirmation for Bluetooth"
+        ],
+        "trust_model": "Similar to SSH, verify certificate on first use"
+      },
+      
+      "file_transfer": {
+        "protocol": "SFTP over SSH",
+        "integration": "Seamless with desktop file managers",
+        "security": "Encrypted file transfers"
+      }
+    }
+  },
+  
+  "fedora_installation": {
+    "package_installation": {
+      "standard_method": {
+        "description": "Install via DNF package manager",
+        "commands": [
+          "sudo dnf install kdeconnect",
+          "sudo dnf install @kde-desktop-environment"
+        ],
+        "packages": [
+          "kdeconnect - Main desktop application",
+          "kdeconnect-kde - Desktop integration",
+          "kde-connect-indicator - System tray indicator"
+        ]
+      },
+      
+      "verification": {
+        "search_packages": "dnf search kde | grep connect",
+        "list_installed": "dnf list installed kde* | grep connect",
+        "check_version": "kdeconnect-cli --version"
+      },
+      
+      "build_from_source": {
+        "install_dependencies": [
+          "sudo dnf builddep kde-connect",
+          "sudo dnf install dbus-devel qt5-qtquickcontrols2-devel",
+          "sudo dnf install extra-cmake-modules kf5-kcmutils-devel kf5-kconfig-devel",
+          "sudo dnf install kf5-kdbusaddons-devel kf5-ki18n-devel kf5-kiconthemes-devel",
+          "sudo dnf install kf5-kio-devel kf5-knotifications-devel qca-qt5-devel"
+        ],
+        "clone_and_build": [
+          "git clone https://invent.kde.org/network/kdeconnect-kde.git",
+          "cd kdeconnect-kde",
+          "mkdir build && cd build",
+          "cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release",
+          "make -j$(nproc)",
+          "sudo make install"
+        ]
+      }
+    },
+    
+    "systemd_configuration": {
+      "daemon_management": {
+        "description": "KDE Connect daemon typically runs via autostart, not as a system service",
+        "autostart_location": [
+          "/etc/xdg/autostart/org.kde.kdeconnect.daemon.desktop",
+          "~/.config/autostart/org.kde.kdeconnect.daemon.desktop"
+        ],
+        "manual_start": "kdeconnectd",
+        "manual_stop": "killall kdeconnectd"
+      },
+      
+      "custom_systemd_user_service": {
+        "description": "Create custom user service for better management",
+        "unit_file": "~/.config/systemd/user/kdeconnect.service",
+        "content": "[Unit]\nDescription=KDE Connect Daemon for Device Communication\nDocumentation=man:kdeconnect(1) https://userbase.kde.org/KDEConnect\n\n[Service]\nType=simple\nExecStart=/usr/bin/kdeconnectd\nRestart=always\nRestartSec=5\n\n[Install]\nWantedBy=default.target",
+        "commands": [
+          "systemctl --user daemon-reload",
+          "systemctl --user enable kdeconnect.service",
+          "systemctl --user start kdeconnect.service",
+          "systemctl --user status kdeconnect.service"
+        ]
+      },
+      
+      "debugging": {
+        "enable_debug_logging": "export QT_LOGGING_RULES='*.debug=true; qt.*.debug=false'",
+        "restart_daemon": "killall kdeconnectd && kdeconnectd",
+        "view_logs": "journalctl --user -u kdeconnect.service -f"
+      }
+    },
+    
+    "firewall_configuration": {
+      "firewalld_commands": {
+        "description": "Configure firewalld to allow KDE Connect traffic",
+        "required_ports": {
+          "tcp": "1714-1764",
+          "udp": "1714, 5353"
+        },
+        "commands": [
+          "sudo firewall-cmd --zone=public --permanent --add-service=kdeconnect",
+          "sudo firewall-cmd --zone=public --permanent --add-port=1714-1764/tcp",
+          "sudo firewall-cmd --zone=public --permanent --add-port=1714-1764/udp",
+          "sudo firewall-cmd --reload",
+          "sudo firewall-cmd --list-all"
+        ],
+        "gui_method": [
+          "sudo dnf install firewall-config",
+          "firewall-config",
+          "Select 'public' zone → Services tab → Check 'kdeconnect-kde'",
+          "Or: Ports tab → Add 1714-1764 for both TCP and UDP"
+        ]
+      },
+      
+      "verification": {
+        "check_firewall_rules": "sudo firewall-cmd --list-services --zone=public",
+        "check_ports": "sudo firewall-cmd --list-ports --zone=public",
+        "test_connectivity": "ss -tunlp | grep kdeconnect"
+      }
+    }
+  },
+  
+  "device_pairing": {
+    "discovery_protocol": {
+      "mechanism": "UDP broadcast on local network",
+      "ports": "1714-1764 UDP for discovery",
+      "broadcast_range": "Typically /24 subnet",
+      "identity_packet": {
+        "description": "Devices broadcast identity packets with device info",
+        "contents": [
+          "Device name",
+          "Device ID (UUID)",
+          "Device type (desktop, phone, tablet)",
+          "Protocol version",
+          "Available plugins"
+        ]
+      },
+      
+      "alternative_discovery": {
+        "mdns": {
+          "status": "Under development",
+          "service": "_kdeconnect._udp",
+          "benefits": [
+            "More reliable in restricted networks",
+            "Less likely to be blocked than UDP broadcast",
+            "Privacy enhancements"
+          ]
+        },
+        "bluetooth": {
+          "status": "Supported since v24.08.1",
+          "pairing": "Pair devices via Bluetooth settings first",
+          "pin_confirmation": "PIN displayed on both devices for verification"
+        },
+        "manual_ip": {
+          "description": "Manual pairing by IP address",
+          "use_case": "VPN, firewalled networks, or failed auto-discovery",
+          "method": "Add device by IP in KDE Connect settings"
+        }
+      }
+    },
+    
+    "pairing_process": {
+      "steps": [
+        "1. Both devices on same network or Bluetooth paired",
+        "2. Open KDE Connect on both devices",
+        "3. Device list refreshes automatically",
+        "4. Initiate pairing request from either device",
+        "5. Accept pairing request on other device",
+        "6. Devices exchange certificates",
+        "7. Secure connection established"
+      ],
+      
+      "tls_handshake": {
+        "description": "TLS 1.2 handshake after initial discovery",
+        "process": [
+          "1. Identity packet sent over unencrypted socket",
+          "2. TLS handshake initiated",
+          "3. Certificate exchange and verification",
+          "4. For new devices: Trust-on-first-use (TOFU) model",
+          "5. For paired devices: Certificate verification against stored cert",
+          "6. Encrypted channel established"
+        ],
+        "certificate_generation": {
+          "algorithm": "RSA 2048-bit",
+          "attributes": {
+            "common_name": "Device UUID",
+            "organization": "KDE",
+            "organizational_unit": "KDE Connect"
+          },
+          "validity_period": "Several years",
+          "storage": "~/.config/kdeconnect/ (Linux)"
+        }
+      },
+      
+      "security_features": {
+        "encryption": "All traffic encrypted with TLS 1.2",
+        "nonce_support": "Prevents replay attacks",
+        "certificate_pinning": "Stored certificates for trusted devices",
+        "user_confirmation": "Manual acceptance required for new pairings"
+      }
+    },
+    
+    "trust_mechanisms": {
+      "trusted_networks": {
+        "description": "Restrict auto-discovery to specific networks",
+        "configuration": "App settings to limit network access",
+        "security_benefit": "Reduces exposure in public networks"
+      },
+      
+      "device_trust": {
+        "permanent_trust": "Option to 'always trust' devices",
+        "limitations": "May not persist across reboots on some platforms",
+        "revocation": "Unpair device to revoke trust"
+      },
+      
+      "firewall_level_trust": {
+        "iptables_rules": "Restrict KDE Connect to specific IP ranges",
+        "ufw_configuration": "Allow only from trusted networks",
+        "example": "sudo ufw allow from 192.168.1.0/24 to any port 1714:1764"
+      }
+    },
+    
+    "authentication_issues": {
+      "common_problems": [
+        "Certificate validation failures due to outdated SSL libraries",
+        "Pairing lost after suspend or network changes",
+        "Device not detected due to firewall blocks",
+        "Android 10+ clipboard access restrictions"
+      ],
+      
+      "troubleshooting": [
+        "Update OpenSSL to latest version (1.1.1h+)",
+        "Restart kdeconnectd daemon",
+        "Clear app data and re-pair",
+        "Check firewall rules",
+        "Verify both devices on same network",
+        "Enable debug logging to identify specific errors"
+      ]
+    }
+  },
+  
+  "plugins": {
+    "battery_monitor": {
+      "description": "Display phone battery level on desktop",
+      "features": [
+        "Shows battery percentage in system tray",
+        "Real-time updates",
+        "Low battery notifications"
+      ],
+      "configuration": "Enable in plugin settings, no additional config needed",
+      "dbus_interface": "org.kde.kdeconnect.device.battery"
+    },
+    
+    "clipboard_sync": {
+      "description": "Bidirectional clipboard sharing between devices",
+      "features": [
+        "Copy on one device, paste on another",
+        "Text-only (no image support)",
+        "Instant synchronization"
+      ],
+      "android_limitations": {
+        "version": "Android 10+",
+        "restriction": "Auto-sync disabled by Google security policy",
+        "workarounds": [
+          "Manual 'Send Clipboard' button in persistent notification",
+          "Quick tile in Android 14+ notification shade",
+          "Magisk module for root users (requires root access)",
+          "Log reading via ADB (for builds with commit edc655da5ac1eb5c3027c8556cc62037a1d4c5ac)"
+        ]
+      },
+      "adb_workaround": [
+        "adb shell pm grant org.kde.kdeconnect_tp android.permission.READ_LOGS",
+        "Enable READ_LOGS permission for clipboard monitoring"
+      ],
+      "configuration": "Enable Clipboard plugin on both devices"
+    },
+    
+    "contacts_sync": {
+      "description": "Synchronize contacts from phone to desktop",
+      "format": "vCard",
+      "direction": "One-way: Android to desktop",
+      "storage_location": "~/.local/share/kpeoplevcard",
+      "integration": "KPeople library for KDE apps",
+      "use_cases": [
+        "SMS application integration",
+        "Contact lookup in desktop apps"
+      ]
+    },
+    
+    "inhibit_screensaver": {
+      "description": "Prevent screensaver when devices connected",
+      "use_cases": [
+        "Presentations",
+        "Remote control scenarios",
+        "Active sessions"
+      ]
+    },
+    
+    "multimedia_control": {
+      "description": "Remote control of media playback",
+      "features": [
+        "Play/Pause",
+        "Next/Previous track",
+        "Seek by 5 seconds",
+        "Volume control (system and player-specific)",
+        "Select specific media players"
+      ],
+      "supported_players": "All MPRIS2-compatible players",
+      "dbus_interface": "org.kde.kdeconnect.device.multimedia"
+    },
+    
+    "pause_media_during_calls": {
+      "description": "Automatically pause media during incoming calls",
+      "options": [
+        "Pause when call starts ringing",
+        "Pause only when call is answered",
+        "Mute system sound"
+      ],
+      "browser_integration": "Requires Plasma Browser Integration for web media"
+    },
+    
+    "ping": {
+      "description": "Send test notification to verify connectivity",
+      "usage": "Click 'Ping' in desktop tray or phone app",
+      "purpose": "Diagnostic tool for connection testing"
+    },
+    
+    "receive_notifications": {
+      "description": "Sync phone notifications to desktop",
+      "features": [
+        "View all phone notifications on desktop",
+        "Reply to messages directly from desktop",
+        "Persistent notification sync"
+      ],
+      "android_15_requirements": {
+        "permission": "RECEIVE_SENSITIVE_NOTIFICATIONS",
+        "workaround": "Grant via ADB or disable enhanced notifications"
+      },
+      "dbus_interface": "org.kde.kdeconnect.device.notifications"
+    },
+    
+    "remote_file_system_browser": {
+      "description": "Browse phone storage via SFTP",
+      "protocol": "SFTP over SSH",
+      "integration": "Appears as device in file managers (Dolphin, Nautilus)",
+      "features": [
+        "Browse phone directories",
+        "Upload/download files",
+        "File management operations"
+      ],
+      "mount_point": "Typically under /run/user/$UID/kdeconnect/"
+    },
+    
+    "ring_my_phone": {
+      "description": "Play alarm sound on phone to locate it",
+      "features": [
+        "Loud alarm sound",
+        "Works even if phone is on silent",
+        "Manual stop required"
+      ],
+      "use_cases": [
+        "Finding lost phone",
+        "Connectivity testing"
+      ]
+    },
+    
+    "run_commands": {
+      "description": "Execute predefined commands on desktop from phone",
+      "features": [
+        "Custom shell scripts",
+        "System commands (suspend, lock, shutdown)",
+        "Android 11+ device controls integration"
+      ],
+      "example_commands": [
+        "Lock screen: loginctl lock-session",
+        "Suspend: systemctl suspend",
+        "Brightness control: xbacklight -set 50",
+        "Volume control: pactl set-sink-volume @DEFAULT_SINK@ +10%"
+      ],
+      "configuration": "Define commands in plugin settings with name and command"
+    },
+    
+    "send_notifications": {
+      "description": "Broadcast desktop notifications to phone",
+      "features": [
+        "Include icons",
+        "Persistent notifications option",
+        "Custom notification text"
+      ],
+      "android_15_permissions": "May require RECEIVE_SENSITIVE_NOTIFICATIONS"
+    },
+    
+    "share_and_receive": {
+      "description": "Share files, URLs, and text between devices",
+      "features": [
+        "Right-click integration in file managers",
+        "Browser integration for URL sharing",
+        "Files saved to Downloads by default (configurable)",
+        "URLs open directly on target device"
+      ],
+      "supported_types": [
+        "Files (all types)",
+        "URLs",
+        "Plain text"
+      ]
+    },
+    
+    "telephone_integration": {
+      "description": "Display incoming call notifications on desktop",
+      "features": [
+        "Caller ID display",
+        "Integrated with 'Pause Media During Calls'",
+        "Call notifications"
+      ],
+      "future_features": "SMS integration (partially implemented)"
+    },
+    
+    "virtual_input": {
+      "description": "Use phone as remote input device",
+      "modes": [
+        "Touchpad mode: Control mouse",
+        "Keyboard mode: Type on desktop"
+      ],
+      "use_cases": [
+        "Presentations",
+        "Media center control",
+        "Remote desktop access"
+      ],
+      "permissions": "Requires input device permissions on Android"
+    },
+    
+    "presentation_control": {
+      "description": "Use phone as presentation remote",
+      "features": [
+        "Advance slides",
+        "Go back",
+        "Control desktop applications"
+      ],
+      "supported_apps": "Any application that responds to keyboard shortcuts"
+    },
+    
+    "sms_integration": {
+      "description": "Send and receive SMS from desktop",
+      "features": [
+        "Send SMS to any contact",
+        "Receive SMS notifications",
+        "Reply to messages"
+      ],
+      "limitations": "SMS history not fully synchronized",
+      "cli_example": "kdeconnect-cli --send-sms 'Hello' --destination +1234567890 --device device_id"
+    }
+  },
+  
+  "network_requirements": {
+    "ports": {
+      "tcp": {
+        "range": "1714-1764",
+        "purpose": "Data transfer, plugin communication"
+      },
+      "udp": {
+        "ports": ["1714", "5353"],
+        "purpose": "Device discovery, mDNS (future)"
+      }
+    },
+    
+    "protocols": {
+      "udp_broadcast": {
+        "purpose": "Device discovery on local network",
+        "limitation": "May be blocked in public/enterprise networks"
+      },
+      "tcp": {
+        "purpose": "Reliable data transfer",
+        "encryption": "TLS 1.2"
+      },
+      "sftp": {
+        "purpose": "File system access",
+        "port": "Negotiated within TCP range"
+      }
+    },
+    
+    "network_topology": {
+      "same_subnet": "Required for UDP broadcast discovery",
+      "typical_range": "/24 subnet (192.168.1.0/24)",
+      "vpn_support": "Requires bridged (TAP) mode for UDP broadcasts",
+      "bluetooth": "Alternative to Wi-Fi, works without network"
+    },
+    
+    "firewall_rules": {
+      "linux_firewalld": {
+        "add_service": "sudo firewall-cmd --zone=public --permanent --add-service=kdeconnect",
+        "add_ports_manual": [
+          "sudo firewall-cmd --zone=public --permanent --add-port=1714-1764/tcp",
+          "sudo firewall-cmd --zone=public --permanent --add-port=1714-1764/udp"
+        ],
+        "reload": "sudo firewall-cmd --reload",
+        "verify": "sudo firewall-cmd --list-all"
+      },
+      
+      "linux_ufw": {
+        "allow_tcp": "sudo ufw allow 1714:1764/tcp",
+        "allow_udp": "sudo ufw allow 1714:1764/udp",
+        "specific_network": "sudo ufw allow from 192.168.1.0/24 to any port 1714:1764",
+        "status": "sudo ufw status verbose"
+      },
+      
+      "linux_iptables": {
+        "allow_input": [
+          "sudo iptables -A INPUT -p tcp --dport 1714:1764 -j ACCEPT",
+          "sudo iptables -A INPUT -p udp --dport 1714:1764 -j ACCEPT"
+        ],
+        "save_rules": "sudo iptables-save > /etc/iptables/rules.v4"
+      },
+      
+      "windows_firewall": {
+        "method": "Allow app through Windows Defender Firewall",
+        "steps": [
+          "Control Panel → Windows Defender Firewall",
+          "Allow an app or feature through Windows Defender Firewall",
+          "Find KDE Connect and check both Private and Public"
+        ]
+      }
+    },
+    
+    "vpn_configuration": {
+      "openvpn_bridged": {
+        "description": "Bridged mode (TAP) allows UDP broadcasts",
+        "server_config": [
+          "dev tap0",
+          "server-bridge 192.168.10.1 255.255.255.0 192.168.10.100 192.168.10.200",
+          "push 'route 192.168.10.0 255.255.255.0'"
+        ],
+        "client_config": [
+          "dev tap",
+          "Pull server network configuration"
+        ],
+        "advantage": "Automatic device discovery works"
+      },
+      
+      "openvpn_routed": {
+        "description": "Routed mode (TUN) requires manual IP pairing",
+        "limitation": "UDP broadcasts not supported",
+        "workaround": "Manually add device by IP in KDE Connect settings",
+        "configuration": "Set static IPs for devices"
+      }
+    },
+    
+    "bluetooth_network": {
+      "requirements": [
+        "Bluetooth enabled on both devices",
+        "Devices paired via Bluetooth settings",
+        "KDE Connect v24.08.1 or later"
+      ],
+      "advantages": [
+        "Works without Wi-Fi",
+        "No firewall configuration needed",
+        "More secure in public spaces"
+      ],
+      "limitations": [
+        "Slower than Wi-Fi",
+        "Limited range (typically 10-100m)"
+      ]
+    }
+  },
+  
+  "dbus_api": {
+    "overview": {
+      "description": "DBus provides programmatic control of KDE Connect",
+      "interface": "org.kde.kdeconnect",
+      "bus_type": "Session bus",
+      "introspection": "Supported for discovering methods and signals"
+    },
+    
+    "introspection_tools": {
+      "qdbusviewer": {
+        "description": "GUI tool for DBus inspection",
+        "usage": "qdbusviewer",
+        "features": [
+          "Browse DBus services",
+          "View methods and signals",
+          "Call methods interactively",
+          "Monitor signal emissions"
+        ]
+      },
+      
+      "qdbus_cli": {
+        "description": "Command-line DBus interface",
+        "list_services": "qdbus | grep kdeconnect",
+        "list_objects": "qdbus org.kde.kdeconnect",
+        "list_methods": "qdbus org.kde.kdeconnect /modules/kdeconnect",
+        "call_method": "qdbus org.kde.kdeconnect /modules/kdeconnect org.kde.kdeconnect.daemon.devices"
+      },
+      
+      "introspect_interface": [
+        "qdbus org.kde.kdeconnect /modules/kdeconnect org.freedesktop.DBus.Introspectable.Introspect",
+        "Returns XML description of interface"
+      ]
+    },
+    
+    "common_interfaces": {
+      "daemon": {
+        "path": "/modules/kdeconnect",
+        "interface": "org.kde.kdeconnect.daemon",
+        "methods": [
+          "devices() → array of device IDs",
+          "deviceIdByName(name) → device ID",
+          "acquireDiscoveryMode(id) → enable discovery",
+          "releaseDiscoveryMode(id) → disable discovery"
+        ],
+        "signals": [
+          "deviceAdded(id)",
+          "deviceRemoved(id)",
+          "deviceVisibilityChanged(id, visible)",
+          "deviceListChanged()"
+        ]
+      },
+      
+      "device": {
+        "path": "/modules/kdeconnect/devices/{deviceId}",
+        "interface": "org.kde.kdeconnect.device",
+        "methods": [
+          "name() → device name",
+          "type() → device type",
+          "isReachable() → boolean",
+          "isTrusted() → boolean",
+          "isPaired() → boolean",
+          "requestPair()",
+          "unpair()",
+          "availableLinks() → array of link types",
+          "loadedPlugins() → array of plugin names"
+        ],
+        "signals": [
+          "pairingError(error)",
+          "reachableChanged(reachable)",
+          "trustedChanged(trusted)",
+          "pluginsChanged()"
+        ]
+      },
+      
+      "battery": {
+        "path": "/modules/kdeconnect/devices/{deviceId}/battery",
+        "interface": "org.kde.kdeconnect.device.battery",
+        "methods": [
+          "charge() → battery percentage",
+          "isCharging() → boolean"
+        ],
+        "signals": [
+          "chargeChanged(charge)",
+          "stateChanged(charging)"
+        ]
+      },
+      
+      "notifications": {
+        "path": "/modules/kdeconnect/devices/{deviceId}/notifications",
+        "interface": "org.kde.kdeconnect.device.notifications",
+        "methods": [
+          "activeNotifications() → array of notification IDs",
+          "sendNotification(id, appName, title, text, icon)"
+        ],
+        "signals": [
+          "notificationPosted(id)",
+          "notificationRemoved(id)",
+          "allNotificationsRemoved()"
+        ]
+      }
+    },
+    
+    "python_examples": {
+      "list_devices": {
+        "description": "List all paired devices using Python DBus",
+        "code": "import dbus\n\nbus = dbus.SessionBus()\nkdeconnect = bus.get_object('org.kde.kdeconnect', '/modules/kdeconnect')\niface = dbus.Interface(kdeconnect, 'org.kde.kdeconnect.daemon')\ndevices = iface.devices()\n\nfor device_id in devices:\n    device = bus.get_object('org.kde.kdeconnect', f'/modules/kdeconnect/devices/{device_id}')\n    device_iface = dbus.Interface(device, 'org.kde.kdeconnect.device')\n    print(f'Device: {device_iface.name()}, ID: {device_id}, Paired: {device_iface.isPaired()}')"
+      },
+      
+      "get_battery_level": {
+        "description": "Get battery level of paired phone",
+        "code": "import dbus\n\nbus = dbus.SessionBus()\nkdeconnect = bus.get_object('org.kde.kdeconnect', '/modules/kdeconnect')\niface = dbus.Interface(kdeconnect, 'org.kde.kdeconnect.daemon')\ndevices = iface.devices()\n\nif devices:\n    device_id = devices[0]\n    battery = bus.get_object('org.kde.kdeconnect', f'/modules/kdeconnect/devices/{device_id}/battery')\n    battery_iface = dbus.Interface(battery, 'org.kde.kdeconnect.device.battery')\n    charge = battery_iface.charge()\n    charging = battery_iface.isCharging()\n    print(f'Battery: {charge}%, Charging: {charging}')"
+      },
+      
+      "send_notification": {
+        "description": "Send notification to phone",
+        "code": "import dbus\n\nbus = dbus.SessionBus()\ndevice_id = 'your_device_id'\nnotifications = bus.get_object('org.kde.kdeconnect', f'/modules/kdeconnect/devices/{device_id}/notifications')\niface = dbus.Interface(notifications, 'org.kde.kdeconnect.device.notifications')\niface.sendNotification('custom_id', 'MyApp', 'Test Notification', 'This is a test', '')"
+      },
+      
+      "monitor_device_changes": {
+        "description": "Monitor device connection changes",
+        "code": "import dbus\nfrom dbus.mainloop.glib import DBusGMainLoop\nfrom gi.repository import GLib\n\nDBusGMainLoop(set_as_default=True)\n\ndef device_added(device_id):\n    print(f'Device added: {device_id}')\n\ndef device_removed(device_id):\n    print(f'Device removed: {device_id}')\n\nbus = dbus.SessionBus()\nbus.add_signal_receiver(device_added, signal_name='deviceAdded', dbus_interface='org.kde.kdeconnect.daemon')\nbus.add_signal_receiver(device_removed, signal_name='deviceRemoved', dbus_interface='org.kde.kdeconnect.daemon')\n\nloop = GLib.MainLoop()\nloop.run()"
+      }
+    },
+    
+    "bash_examples": {
+      "list_devices_bash": "qdbus org.kde.kdeconnect /modules/kdeconnect org.kde.kdeconnect.daemon.devices",
+      "get_device_name": "DEVICE_ID=$(qdbus org.kde.kdeconnect /modules/kdeconnect org.kde.kdeconnect.daemon.devices | head -n1)\nqdbus org.kde.kdeconnect /modules/kdeconnect/devices/$DEVICE_ID org.kde.kdeconnect.device.name",
+      "check_reachable": "DEVICE_ID='your_device_id'\nqdbus org.kde.kdeconnect /modules/kdeconnect/devices/$DEVICE_ID org.kde.kdeconnect.device.isReachable",
+      "get_battery": "DEVICE_ID='your_device_id'\nqdbus org.kde.kdeconnect /modules/kdeconnect/devices/$DEVICE_ID/battery org.kde.kdeconnect.device.battery.charge"
+    },
+    
+    "kdeconnect_cli": {
+      "description": "Official command-line interface to KDE Connect",
+      "common_commands": {
+        "list_devices": "kdeconnect-cli --list-devices",
+        "list_available": "kdeconnect-cli --list-available",
+        "id_only": "kdeconnect-cli -a --id-only",
+        "pair_device": "kdeconnect-cli --pair --device DEVICE_ID",
+        "unpair_device": "kdeconnect-cli --unpair --device DEVICE_ID",
+        "ping": "kdeconnect-cli --ping --device DEVICE_ID",
+        "ping_with_msg": "kdeconnect-cli -d $(kdeconnect-cli -a --id-only) --ping-msg 'Custom message'",
+        "share_file": "kdeconnect-cli --share /path/to/file --device DEVICE_ID",
+        "send_sms": "kdeconnect-cli --send-sms 'Message' --destination +1234567890 --device DEVICE_ID",
+        "ring_phone": "kdeconnect-cli --ring --name 'Device Name'",
+        "battery_status": "kdeconnect-cli --battery --device DEVICE_ID"
+      },
+      
+      "advanced_usage": {
+        "auto_device": "DEVICE_ID=$(kdeconnect-cli -a --id-only)",
+        "system_status_ping": "kdeconnect-cli -d $(kdeconnect-cli -a --id-only) --ping-msg \"$(systemctl status sshd | grep Active)\"",
+        "screenshot_share": "file=/tmp/screenshot.png; spectacle -bo \"${file}\" && kdeconnect-cli -d $(kdeconnect-cli -a --id-only) --share \"${file}\"",
+        "send_command": "kdeconnect-cli --run-command COMMAND_ID --device DEVICE_ID"
+      }
+    }
+  },
+  
+  "websocket_integration": {
+    "native_support": {
+      "status": "Not natively supported",
+      "protocol": "KDE Connect uses custom protocol over TCP/TLS",
+      "dbus_primary": "DBus is the primary real-time monitoring interface"
+    },
+    
+    "custom_implementation": {
+      "approach": "Build WebSocket wrapper around DBus API",
+      "use_cases": [
+        "Web-based dashboard",
+        "Real-time device monitoring",
+        "Browser-based control interface"
+      ],
+      
+      "python_websocket_server": {
+        "description": "Example WebSocket server exposing KDE Connect via websockets",
+        "code": "import asyncio\nimport websockets\nimport dbus\nimport json\nfrom dbus.mainloop.glib import DBusGMainLoop\n\nDBusGMainLoop(set_as_default=True)\nbus = dbus.SessionBus()\n\nasync def kdeconnect_handler(websocket, path):\n    kdeconnect = bus.get_object('org.kde.kdeconnect', '/modules/kdeconnect')\n    iface = dbus.Interface(kdeconnect, 'org.kde.kdeconnect.daemon')\n    \n    async for message in websocket:\n        try:\n            data = json.loads(message)\n            action = data.get('action')\n            \n            if action == 'list_devices':\n                devices = iface.devices()\n                device_list = []\n                for device_id in devices:\n                    device = bus.get_object('org.kde.kdeconnect', f'/modules/kdeconnect/devices/{device_id}')\n                    device_iface = dbus.Interface(device, 'org.kde.kdeconnect.device')\n                    device_list.append({\n                        'id': device_id,\n                        'name': device_iface.name(),\n                        'paired': device_iface.isPaired(),\n                        'reachable': device_iface.isReachable()\n                    })\n                await websocket.send(json.dumps({'devices': device_list}))\n            \n            elif action == 'get_battery':\n                device_id = data.get('device_id')\n                battery = bus.get_object('org.kde.kdeconnect', f'/modules/kdeconnect/devices/{device_id}/battery')\n                battery_iface = dbus.Interface(battery, 'org.kde.kdeconnect.device.battery')\n                await websocket.send(json.dumps({\n                    'charge': battery_iface.charge(),\n                    'charging': battery_iface.isCharging()\n                }))\n        \n        except Exception as e:\n            await websocket.send(json.dumps({'error': str(e)}))\n\nasync def main():\n    async with websockets.serve(kdeconnect_handler, 'localhost', 8765):\n        await asyncio.Future()\n\nasyncio.run(main())",
+        "dependencies": [
+          "pip install websockets dbus-python pygobject"
+        ]
+      },
+      
+      "client_example": {
+        "description": "JavaScript client to connect to WebSocket server",
+        "code": "const ws = new WebSocket('ws://localhost:8765');\n\nws.onopen = () => {\n    // List devices\n    ws.send(JSON.stringify({action: 'list_devices'}));\n};\n\nws.onmessage = (event) => {\n    const data = JSON.parse(event.data);\n    console.log('Received:', data);\n    \n    if (data.devices) {\n        data.devices.forEach(device => {\n            console.log(`Device: ${device.name}, Paired: ${device.paired}`);\n        });\n    }\n};\n\n// Get battery for specific device\nfunction getBattery(deviceId) {\n    ws.send(JSON.stringify({action: 'get_battery', device_id: deviceId}));\n}"
+      }
+    },
+    
+    "alternative_approaches": {
+      "rest_api": {
+        "description": "Build REST API wrapper using Flask or FastAPI",
+        "advantages": [
+          "Simpler than WebSocket for many use cases",
+          "Standard HTTP methods",
+          "Easy to integrate with web applications"
+        ]
+      },
+      
+      "server_sent_events": {
+        "description": "Use SSE for server-to-client push notifications",
+        "use_case": "Real-time monitoring without full bidirectional communication"
+      },
+      
+      "mqtt_bridge": {
+        "description": "Bridge DBus signals to MQTT topics",
+        "use_case": "IoT integration and home automation"
+      }
+    }
+  },
+  
+  "ssh_tunneling": {
+    "overview": {
+      "description": "SSH tunneling can secure KDE Connect traffic or enable remote access",
+      "limitation": "KDE Connect uses UDP for discovery, SSH tunneling is TCP-based",
+      "recommendation": "Use OpenVPN bridged mode for full functionality"
+    },
+    
+    "local_port_forwarding": {
+      "description": "Forward local port to remote KDE Connect instance",
+      "syntax": "ssh -L local_port:remote_host:remote_port user@ssh_server",
+      "example": "ssh -L 1714:192.168.1.100:1714 user@gateway.example.com",
+      "use_case": "Access KDE Connect on remote device through SSH tunnel",
+      "limitation": "Only works for already-paired devices (no UDP discovery)"
+    },
+    
+    "remote_port_forwarding": {
+      "description": "Expose local KDE Connect to remote network",
+      "syntax": "ssh -R remote_port:localhost:local_port user@ssh_server",
+      "example": "ssh -R 1714:localhost:1714 user@remote.example.com",
+      "requirements": [
+        "Enable GatewayPorts in /etc/ssh/sshd_config",
+        "Restart SSH service: sudo systemctl restart sshd"
+      ],
+      "use_case": "Make local KDE Connect accessible from remote network"
+    },
+    
+    "dynamic_port_forwarding": {
+      "description": "Create SOCKS proxy for flexible routing",
+      "syntax": "ssh -D local_port user@ssh_server",
+      "example": "ssh -D 8080 user@proxy.example.com",
+      "use_case": "Route all traffic through SSH tunnel",
+      "configuration": "Configure applications to use SOCKS proxy at localhost:8080"
+    },
+    
+    "openvpn_alternative": {
+      "description": "OpenVPN provides better support for KDE Connect",
+      "advantages": [
+        "Supports UDP broadcasts (with bridged mode)",
+        "Automatic device discovery works",
+        "Simpler configuration for KDE Connect"
+      ],
+      
+      "bridged_mode": {
+        "device_type": "TAP",
+        "allows_udp_broadcast": true,
+        "server_config_sample": "dev tap0\nserver-bridge 10.8.0.1 255.255.255.0 10.8.0.100 10.8.0.200\nport 1194\nproto udp\nca ca.crt\ncert server.crt\nkey server.key\ndh dh2048.pem",
+        "client_config_sample": "dev tap\nremote vpn.example.com 1194\nproto udp\nca ca.crt\ncert client.crt\nkey client.key"
+      },
+      
+      "routed_mode": {
+        "device_type": "TUN",
+        "allows_udp_broadcast": false,
+        "workaround": "Manually add devices by IP address in KDE Connect settings",
+        "limitation": "Automatic discovery doesn't work"
+      }
+    },
+    
+    "protocol_bridging": {
+      "socat_example": {
+        "description": "Bridge UDP to TCP for tunneling",
+        "server_side": "socat TCP-LISTEN:1714,fork UDP:localhost:1714",
+        "client_side": "socat UDP-LISTEN:1714,fork TCP:remote_server:1714",
+        "warning": "Complex setup, not officially supported"
+      }
+    }
+  },
+  
+  "screen_sharing": {
+    "krfb": {
+      "description": "KDE Remote Frame Buffer - VNC server for KDE Plasma",
+      "protocol": "VNC (Virtual Network Computing)",
+      "installation": "sudo dnf install krfb",
+      
+      "features": [
+        "Share current X11/Wayland session",
+        "View-only or full control modes",
+        "Password authentication",
+        "Unattended access mode",
+        "Service Location Protocol (SLP) announcement"
+      ],
+      
+      "usage": {
+        "start_server": "krfb",
+        "enable_sharing": "Click 'Enable Desktop Sharing' in krfb",
+        "get_connection_info": "Display shows IP address and port (default: 5900)",
+        "share_password": "Automatically generated, shown in interface"
+      },
+      
+      "configuration": {
+        "network_settings": {
+          "port": "5900 (customizable)",
+          "slp_announcement": "Enable for automatic discovery",
+          "firewall": "Open port 5900 in firewall"
+        },
+        
+        "security_settings": {
+          "authentication": "Password-based (challenge-response)",
+          "unattended_access": "Separate password for automatic login",
+          "remote_control": "Allow/deny remote input",
+          "confirm_connections": "Prompt for each connection (attended mode)"
+        }
+      },
+      
+      "client_connection": {
+        "krdc": "krdc vnc://server_ip:5900",
+        "other_clients": "Any VNC client (TigerVNC, RealVNC, etc.)",
+        "connection_string": "vnc://192.168.1.100:5900"
+      },
+      
+      "wayland_support": {
+        "status": "Supported in recent versions",
+        "requirements": [
+          "KDE Plasma on Wayland",
+          "PipeWire for screen capture",
+          "xdg-desktop-portal-kde"
+        ],
+        "performance": "Good, but may vary by network speed"
+      },
+      
+      "security_recommendations": [
+        "Use strong passwords",
+        "Enable firewall rules",
+        "Use unattended access only when necessary",
+        "Consider SSH tunneling for VNC traffic: ssh -L 5900:localhost:5900 user@remote_host"
+      ]
+    },
+    
+    "pipewire_screen_sharing": {
+      "description": "Modern screen sharing using PipeWire on Wayland",
+      "requirements": [
+        "PipeWire (version 1.2+)",
+        "xdg-desktop-portal",
+        "xdg-desktop-portal-kde",
+        "wireplumber (recommended over pipewire-media-session)"
+      ],
+      
+      "installation_fedora": [
+        "sudo dnf install pipewire wireplumber",
+        "sudo dnf install xdg-desktop-portal xdg-desktop-portal-kde"
+      ],
+      
+      "browser_configuration": {
+        "firefox": {
+          "enable_wayland": "export MOZ_ENABLE_WAYLAND=1",
+          "about_config_flags": [
+            "media.webrtc.camera.allow-pipewire = true",
+            "media.webrtc.capture.allow-pipewire = true"
+          ]
+        },
+        
+        "chromium_based": {
+          "flags": "--enable-features=UseOzonePlatform --ozone-platform=wayland",
+          "enable_pipewire": "chrome://flags/#enable-webrtc-pipewire-capturer",
+          "browsers": ["Chrome", "Chromium", "Vivaldi", "Brave"]
+        }
+      },
+      
+      "troubleshooting": {
+        "update_packages": "sudo dnf update pipewire wireplumber xdg-desktop-portal-kde",
+        "restart_portals": "pkill xdg-desktop-portal; pkill xdg-desktop-portal-kde",
+        "check_services": "systemctl --user status pipewire wireplumber",
+        "debug_logging": "journalctl --user -u pipewire -f"
+      },
+      
+      "common_issues": [
+        "Black screen during sharing - Update PipeWire to 1.2+",
+        "Multiple permission dialogs - Browser flag configuration needed",
+        "Missing QML modules - Update xdg-desktop-portal-kde",
+        "Chromium not working - Enable Wayland and WebRTC PipeWire flags"
+      ],
+      
+      "applications_support": {
+        "working_well": ["Firefox", "Google Meet", "Zoom (newer versions)", "Discord (with flags)"],
+        "limited_support": ["Vivaldi", "Chromium"],
+        "workarounds_needed": ["Older Discord versions", "Some Electron apps"]
+      }
+    },
+    
+    "x11vnc": {
+      "description": "VNC server for X11 sessions",
+      "installation": "sudo dnf install x11vnc",
+      "usage": "x11vnc -display :0 -auth ~/.Xauthority",
+      "limitation": "X11 only, not compatible with Wayland sessions"
+    },
+    
+    "kde_connect_integration": {
+      "direct_screen_sharing": "Not built-in to KDE Connect",
+      "workarounds": [
+        "Use krfb on desktop, connect from phone with VNC client",
+        "Share screen via browser with PipeWire to web meetings",
+        "Use Run Commands plugin to trigger screen sharing setup"
+      ],
+      
+      "remote_input_alternative": {
+        "description": "Virtual Input plugin provides remote control",
+        "use_case": "Control desktop from phone without full screen sharing",
+        "advantage": "Lower bandwidth, built into KDE Connect"
+      }
+    }
+  },
+  
+  "monitoring_and_health_checks": {
+    "daemon_status": {
+      "check_if_running": {
+        "ps_command": "ps aux | grep kdeconnectd",
+        "pgrep": "pgrep -fl kdeconnectd",
+        "systemd_user": "systemctl --user status kdeconnect.service"
+      },
+      
+      "check_listening_ports": {
+        "netstat": "sudo netstat -tunelp | grep kdeconnect",
+        "ss": "ss -tunlp | grep kdeconnect",
+        "expected_output": "Should show UDP and TCP listeners on ports 1714-1764"
+      },
+      
+      "restart_daemon": {
+        "kill_and_restart": "killall kdeconnectd && kdeconnectd &",
+        "systemd": "systemctl --user restart kdeconnect.service",
+        "verify": "ps aux | grep kdeconnectd"
+      }
+    },
+    
+    "connection_status": {
+      "cli_check": {
+        "list_devices": "kdeconnect-cli --list-devices",
+        "list_available": "kdeconnect-cli --list-available",
+        "device_reachable": "kdeconnect-cli --name 'Device Name' --ping"
+      },
+      
+      "dbus_check": {
+        "list_devices": "qdbus org.kde.kdeconnect /modules/kdeconnect org.kde.kdeconnect.daemon.devices",
+        "check_reachable": "qdbus org.kde.kdeconnect /modules/kdeconnect/devices/DEVICE_ID org.kde.kdeconnect.device.isReachable",
+        "check_paired": "qdbus org.kde.kdeconnect /modules/kdeconnect/devices/DEVICE_ID org.kde.kdeconnect.device.isPaired"
+      },
+      
+      "network_connectivity": {
+        "ping_test": "ping -c 3 PHONE_IP_ADDRESS",
+        "traceroute": "traceroute PHONE_IP_ADDRESS",
+        "check_same_subnet": "ip addr show | grep inet"
+      }
+    },
+    
+    "automated_monitoring": {
+      "bash_script": {
+        "description": "Simple monitoring script",
+        "code": "#!/bin/bash\n\n# KDE Connect monitoring script\n\nLOG_FILE=\"/tmp/kdeconnect_monitor.log\"\n\nlog_message() {\n    echo \"$(date '+%Y-%m-%d %H:%M:%S') - $1\" | tee -a \"$LOG_FILE\"\n}\n\n# Check if daemon is running\nif ! pgrep -x kdeconnectd > /dev/null; then\n    log_message \"ERROR: kdeconnectd is not running\"\n    log_message \"Attempting to restart...\"\n    kdeconnectd &\n    sleep 2\nfi\n\n# Check device connectivity\nDEVICES=$(kdeconnect-cli --list-available --id-only)\n\nif [ -z \"$DEVICES\" ]; then\n    log_message \"WARNING: No devices available\"\nelse\n    for DEVICE_ID in $DEVICES; do\n        DEVICE_NAME=$(qdbus org.kde.kdeconnect /modules/kdeconnect/devices/$DEVICE_ID org.kde.kdeconnect.device.name)\n        IS_REACHABLE=$(qdbus org.kde.kdeconnect /modules/kdeconnect/devices/$DEVICE_ID org.kde.kdeconnect.device.isReachable)\n        log_message \"Device: $DEVICE_NAME (ID: $DEVICE_ID) - Reachable: $IS_REACHABLE\"\n    done\nfi"
+      },
+      
+      "systemd_timer": {
+        "description": "Run monitoring script periodically",
+        "timer_file": "~/.config/systemd/user/kdeconnect-monitor.timer",
+        "timer_content": "[Unit]\nDescription=KDE Connect monitoring timer\n\n[Timer]\nOnBootSec=5min\nOnUnitActiveSec=5min\n\n[Install]\nWantedBy=timers.target",
+        
+        "service_file": "~/.config/systemd/user/kdeconnect-monitor.service",
+        "service_content": "[Unit]\nDescription=KDE Connect monitoring service\n\n[Service]\nType=oneshot\nExecStart=/home/user/bin/kdeconnect_monitor.sh",
+        
+        "commands": [
+          "systemctl --user daemon-reload",
+          "systemctl --user enable kdeconnect-monitor.timer",
+          "systemctl --user start kdeconnect-monitor.timer"
+        ]
+      },
+      
+      "python_monitoring": {
+        "description": "Python script with DBus monitoring",
+        "code": "#!/usr/bin/env python3\nimport dbus\nimport time\nfrom dbus.mainloop.glib import DBusGMainLoop\nfrom gi.repository import GLib\n\nDBusGMainLoop(set_as_default=True)\n\ndef log_event(message):\n    timestamp = time.strftime('%Y-%m-%d %H:%M:%S')\n    print(f'{timestamp} - {message}')\n    with open('/tmp/kdeconnect_events.log', 'a') as f:\n        f.write(f'{timestamp} - {message}\\n')\n\ndef device_added(device_id):\n    log_event(f'Device added: {device_id}')\n\ndef device_removed(device_id):\n    log_event(f'Device removed: {device_id}')\n\ndef device_visibility_changed(device_id, visible):\n    log_event(f'Device {device_id} visibility changed: {visible}')\n\ndef reachable_changed(reachable):\n    log_event(f'Device reachability changed: {reachable}')\n\ntry:\n    bus = dbus.SessionBus()\n    \n    # Monitor daemon signals\n    bus.add_signal_receiver(\n        device_added,\n        signal_name='deviceAdded',\n        dbus_interface='org.kde.kdeconnect.daemon',\n        path='/modules/kdeconnect'\n    )\n    \n    bus.add_signal_receiver(\n        device_removed,\n        signal_name='deviceRemoved',\n        dbus_interface='org.kde.kdeconnect.daemon',\n        path='/modules/kdeconnect'\n    )\n    \n    bus.add_signal_receiver(\n        device_visibility_changed,\n        signal_name='deviceVisibilityChanged',\n        dbus_interface='org.kde.kdeconnect.daemon',\n        path='/modules/kdeconnect'\n    )\n    \n    log_event('KDE Connect monitoring started')\n    \n    loop = GLib.MainLoop()\n    loop.run()\n    \nexcept KeyboardInterrupt:\n    log_event('Monitoring stopped by user')\nexcept Exception as e:\n    log_event(f'Error: {str(e)}')"
+      }
+    },
+    
+    "health_checks": {
+      "periodic_checks": [
+        "Verify daemon is running",
+        "Check device connectivity",
+        "Test network reachability",
+        "Validate firewall rules",
+        "Check certificate validity",
+        "Monitor plugin status"
+      ],
+      
+      "diagnostic_commands": {
+        "full_status": "kdeconnect-cli --list-devices && kdeconnect-cli --list-available",
+        "device_info": "for id in $(kdeconnect-cli -a --id-only); do echo \"=== Device $id ===\"  && qdbus org.kde.kdeconnect /modules/kdeconnect/devices/$id org.kde.kdeconnect.device.name && qdbus org.kde.kdeconnect /modules/kdeconnect/devices/$id org.kde.kdeconnect.device.isReachable; done",
+        "plugin_status": "qdbus org.kde.kdeconnect /modules/kdeconnect/devices/DEVICE_ID org.kde.kdeconnect.device.loadedPlugins"
+      }
+    },
+    
+    "logging": {
+      "enable_debug_logging": {
+        "environment_variable": "export QT_LOGGING_RULES='*.debug=true; qt.*.debug=false'",
+        "run_daemon": "kdeconnectd",
+        "view_output": "Output will show debug messages in terminal"
+      },
+      
+      "log_locations": [
+        "~/.xsession-errors (X11 sessions)",
+        "journalctl --user -u kdeconnect.service (if using systemd)",
+        "journalctl -b | grep kdeconnect (system logs)"
+      ],
+      
+      "android_logs": {
+        "adb_logcat": "adb logcat | grep kdeconnect",
+        "filter_errors": "adb logcat -s KDEConnect:E",
+        "full_debug": "adb logcat -s KDEConnect:D"
+      }
+    }
+  },
+  
+  "common_issues_and_recovery": {
+    "devices_not_connecting": {
+      "symptoms": [
+        "Devices not appearing in list",
+        "Cannot discover devices",
+        "Devices show as 'not reachable'"
+      ],
+      
+      "causes_and_solutions": [
+        {
+          "cause": "Firewall blocking traffic",
+          "solution": "Configure firewall to allow ports 1714-1764 TCP/UDP",
+          "commands": [
+            "sudo firewall-cmd --zone=public --permanent --add-service=kdeconnect",
+            "sudo firewall-cmd --reload"
+          ]
+        },
+        {
+          "cause": "Devices on different networks",
+          "solution": "Ensure both devices on same Wi-Fi network",
+          "verification": "Check IP addresses are in same subnet"
+        },
+        {
+          "cause": "Router AP isolation enabled",
+          "solution": "Disable AP isolation in router settings",
+          "alternative": "Use Bluetooth pairing instead"
+        },
+        {
+          "cause": "VPN interfering with discovery",
+          "solution": "Disable VPN or configure bridged mode",
+          "alternative": "Manually add device by IP"
+        }
+      ],
+      
+      "recovery_steps": [
+        "1. Verify network connectivity: ping between devices",
+        "2. Check firewall rules: sudo firewall-cmd --list-all",
+        "3. Restart kdeconnectd: killall kdeconnectd && kdeconnectd &",
+        "4. Refresh device list in KDE Connect app",
+        "5. Try manual pairing by IP address",
+        "6. As last resort: Unpair and re-pair devices"
+      ]
+    },
+    
+    "pairing_failures": {
+      "symptoms": [
+        "Pairing request times out",
+        "Certificate validation errors",
+        "Pairing accepted but devices don't connect"
+      ],
+      
+      "causes_and_solutions": [
+        {
+          "cause": "Outdated SSL libraries",
+          "solution": "Update OpenSSL",
+          "commands": ["sudo dnf update openssl"],
+          "minimum_version": "OpenSSL 1.1.1h+"
+        },
+        {
+          "cause": "Certificate problems",
+          "solution": "Clear stored certificates and re-pair",
+          "locations": [
+            "~/.config/kdeconnect/ (Linux)",
+            "Delete certificate files and re-pair"
+          ]
+        },
+        {
+          "cause": "Version mismatch",
+          "solution": "Update KDE Connect on both devices",
+          "verification": "Check versions match or are compatible"
+        },
+        {
+          "cause": "Insufficient permissions (Android)",
+          "solution": "Grant all requested permissions in Android settings"
+        }
+      ],
+      
+      "recovery_steps": [
+        "1. Unpair devices completely",
+        "2. Clear KDE Connect app data on Android",
+        "3. Delete certificates: rm -rf ~/.config/kdeconnect/",
+        "4. Restart kdeconnectd",
+        "5. Restart KDE Connect app on Android",
+        "6. Attempt pairing again",
+        "7. Check logs for specific errors: journalctl | grep kdeconnect"
+      ]
+    },
+    
+    "connection_drops": {
+      "symptoms": [
+        "Frequent disconnections",
+        "Devices lose pairing",
+        "Connection unstable"
+      ],
+      
+      "causes_and_solutions": [
+        {
+          "cause": "Network instability",
+          "solution": "Check Wi-Fi signal strength and interference",
+          "diagnostics": "ping -c 100 DEVICE_IP | grep loss"
+        },
+        {
+          "cause": "Power saving killing KDE Connect",
+          "solution": "Disable battery optimization for KDE Connect on Android",
+          "location": "Android Settings → Apps → KDE Connect → Battery"
+        },
+        {
+          "cause": "Bluetooth connection issues",
+          "solution": "Clear Bluetooth cache and re-pair",
+          "android_cache": "Settings → Apps → Bluetooth → Clear cache"
+        },
+        {
+          "cause": "Daemon crashes",
+          "solution": "Enable debug logging to identify crash cause",
+          "restart": "Set up systemd service with automatic restart"
+        }
+      ],
+      
+      "prevention": [
+        "Disable power saving for KDE Connect app",
+        "Use static IP addresses for devices",
+        "Keep both KDE Connect versions updated",
+        "Use wired connection or 5GHz Wi-Fi for stability",
+        "Set up systemd service with Restart=always"
+      ]
+    },
+    
+    "plugin_specific_issues": {
+      "clipboard_sync": {
+        "issue": "Android 10+ clipboard not syncing automatically",
+        "solutions": [
+          "Use 'Send Clipboard' button in notification",
+          "Install Magisk module (requires root)",
+          "Grant READ_LOGS permission via ADB",
+          "Use quick tile in Android 14+"
+        ],
+        "adb_command": "adb shell pm grant org.kde.kdeconnect_tp android.permission.READ_LOGS"
+      },
+      
+      "file_sharing": {
+        "issue": "SFTP mount fails or files not accessible",
+        "solutions": [
+          "Install sshfs: sudo dnf install sshfs",
+          "Check SSH key permissions",
+          "Verify phone storage permissions granted",
+          "Restart file manager"
+        ]
+      },
+      
+      "notifications": {
+        "issue": "Notifications not syncing",
+        "solutions": [
+          "Grant notification access on Android",
+          "Enable notification permission in Android settings",
+          "For Android 15+: Grant RECEIVE_SENSITIVE_NOTIFICATIONS",
+          "Check Do Not Disturb is not blocking"
+        ]
+      },
+      
+      "sms": {
+        "issue": "Cannot send or receive SMS",
+        "solutions": [
+          "Grant SMS permissions on Android",
+          "Set KDE Connect as default SMS app",
+          "Check phone number format (+country code)",
+          "Verify contacts plugin is enabled"
+        ]
+      }
+    },
+    
+    "certificate_issues": {
+      "symptoms": [
+        "SSL handshake failures",
+        "Certificate validation errors",
+        "Pairing works but features fail"
+      ],
+      
+      "diagnosis": {
+        "check_certificates": "ls -la ~/.config/kdeconnect/",
+        "verify_permissions": "Check certificate files are readable",
+        "log_analysis": "grep -i certificate /var/log/messages"
+      },
+      
+      "recovery": [
+        "Backup certificates: cp -r ~/.config/kdeconnect/ ~/kdeconnect.backup",
+        "Remove old certificates: rm -rf ~/.config/kdeconnect/",
+        "Restart daemon: killall kdeconnectd && kdeconnectd &",
+        "Re-pair devices (new certificates generated)",
+        "Update OpenSSL if validation errors persist"
+      ]
+    },
+    
+    "performance_issues": {
+      "symptoms": [
+        "High CPU usage",
+        "Slow file transfers",
+        "Laggy remote input"
+      ],
+      
+      "optimization": [
+        "Close unused plugins",
+        "Use wired connection or 5GHz Wi-Fi",
+        "Reduce notification sync frequency",
+        "Check for network bandwidth issues",
+        "Disable battery monitoring if not needed"
+      ],
+      
+      "resource_monitoring": {
+        "cpu_usage": "top -p $(pgrep kdeconnectd)",
+        "memory_usage": "ps aux | grep kdeconnectd",
+        "network_traffic": "iftop -f 'port 1714 or port 1764'"
+      }
+    },
+    
+    "recovery_procedures": {
+      "complete_reset": {
+        "steps": [
+          "1. Unpair all devices",
+          "2. Stop daemon: killall kdeconnectd",
+          "3. Backup config: mv ~/.config/kdeconnect ~/.config/kdeconnect.old",
+          "4. Clear Android app data",
+          "5. Restart daemon: kdeconnectd &",
+          "6. Re-pair devices from scratch"
+        ],
+        "when_to_use": "When all other troubleshooting fails"
+      },
+      
+      "network_reset": {
+        "steps": [
+          "1. Disable Wi-Fi on both devices",
+          "2. Restart router",
+          "3. Clear network cache on Android",
+          "4. Re-enable Wi-Fi",
+          "5. Verify IP addresses in same subnet",
+          "6. Test with ping before trying KDE Connect"
+        ]
+      },
+      
+      "reinstallation": {
+        "linux": [
+          "sudo dnf remove kdeconnect",
+          "rm -rf ~/.config/kdeconnect",
+          "sudo dnf install kdeconnect",
+          "kdeconnectd &"
+        ],
+        "android": [
+          "Uninstall KDE Connect app",
+          "Clear data in app settings before uninstall",
+          "Reinstall from Play Store or F-Droid",
+          "Grant all permissions during setup"
+        ]
+      }
+    }
+  },
+  
+  "best_practices": {
+    "security": [
+      "Always use strong pairing passwords",
+      "Keep KDE Connect updated on all devices",
+      "Use firewall rules to restrict access to trusted networks",
+      "Disable unattended access unless absolutely necessary",
+      "Regularly review paired devices and unpair unused ones",
+      "Use VPN or SSH tunnel for remote access",
+      "Enable Bluetooth only when needed",
+      "Monitor logs for suspicious activity"
+    ],
+    
+    "performance": [
+      "Disable unused plugins to reduce overhead",
+      "Use 5GHz Wi-Fi for better performance",
+      "Consider wired connection for desktop",
+      "Disable battery optimization for KDE Connect on Android",
+      "Keep devices on same network subnet",
+      "Use static IP addresses to avoid discovery delays",
+      "Restart daemon periodically if experiencing issues"
+    ],
+    
+    "reliability": [
+      "Set up systemd service with automatic restart",
+      "Monitor daemon status regularly",
+      "Keep backups of configuration",
+      "Test connectivity after network changes",
+      "Document custom commands and configurations",
+      "Use version control for custom scripts",
+      "Keep both desktop and mobile apps updated"
+    ],
+    
+    "integration": [
+      "Use DBus API for custom automation",
+      "Integrate with home automation systems",
+      "Create custom commands for frequent tasks",
+      "Use kdeconnect-cli in scripts",
+      "Set up monitoring and alerting",
+      "Document API usage for team members"
+    ]
+  },
+  
+  "resources": {
+    "official_documentation": [
+      {
+        "name": "KDE UserBase Wiki",
+        "url": "https://userbase.kde.org/KDEConnect",
+        "description": "Comprehensive user guide with troubleshooting"
+      },
+      {
+        "name": "KDE Community Wiki",
+        "url": "https://community.kde.org/KDEConnect",
+        "description": "Development documentation and building instructions"
+      },
+      {
+        "name": "Official Website",
+        "url": "https://kdeconnect.kde.org/",
+        "description": "Feature overview and download links"
+      }
+    ],
+    
+    "source_code": [
+      {
+        "name": "KDE Connect Desktop (GitLab)",
+        "url": "https://invent.kde.org/network/kdeconnect-kde",
+        "description": "Main desktop implementation"
+      },
+      {
+        "name": "KDE Connect Android (GitLab)",
+        "url": "https://invent.kde.org/network/kdeconnect-android",
+        "description": "Android app implementation"
+      },
+      {
+        "name": "GitHub Mirror",
+        "url": "https://github.com/KDE/kdeconnect-kde",
+        "description": "Read-only mirror for browsing"
+      }
+    ],
+    
+    "community": [
+      {
+        "name": "KDE Discuss",
+        "url": "https://discuss.kde.org/c/help/6",
+        "description": "Official KDE community forum"
+      },
+      {
+        "name": "r/kde Subreddit",
+        "url": "https://www.reddit.com/r/kde/",
+        "description": "Community discussions and help"
+      },
+      {
+        "name": "KDE Bug Tracker",
+        "url": "https://bugs.kde.org/",
+        "description": "Report bugs and track issues"
+      }
+    ],
+    
+    "tutorials": [
+      {
+        "name": "DBus Access Tutorial",
+        "url": "https://develop.kde.org/docs/features/d-bus/accessing_dbus_interfaces/",
+        "description": "Learn to interact with DBus APIs"
+      },
+      {
+        "name": "Build Instructions",
+        "url": "https://community.kde.org/KDEConnect/Build_Linux",
+        "description": "Compile KDE Connect from source"
+      }
+    ]
+  },
+  
+  "appendix": {
+    "port_reference": {
+      "tcp_ports": "1714-1764",
+      "udp_ports": "1714, 5353 (mDNS future)",
+      "vnc_port": "5900 (for krfb)",
+      "ssh_port": "22 (for tunneling)"
+    },
+    
+    "file_locations": {
+      "linux_config": "~/.config/kdeconnect/",
+      "linux_certificates": "~/.config/kdeconnect/",
+      "linux_data": "~/.local/share/kdeconnect/",
+      "autostart": "~/.config/autostart/org.kde.kdeconnect.daemon.desktop",
+      "systemd_user": "~/.config/systemd/user/kdeconnect.service"
+    },
+    
+    "dbus_paths": {
+      "daemon": "/modules/kdeconnect",
+      "devices": "/modules/kdeconnect/devices/{deviceId}",
+      "battery": "/modules/kdeconnect/devices/{deviceId}/battery",
+      "notifications": "/modules/kdeconnect/devices/{deviceId}/notifications"
+    },
+    
+    "glossary": {
+      "TAP": "Network device that simulates Ethernet (Layer 2), supports broadcasts",
+      "TUN": "Network device that operates at IP level (Layer 3), no broadcasts",
+      "TOFU": "Trust On First Use - security model where certificates are trusted after first encounter",
+      "SFTP": "Secure File Transfer Protocol - encrypted file transfer over SSH",
+      "mDNS": "Multicast DNS - zero-configuration service discovery protocol",
+      "DBus": "Desktop Bus - inter-process communication system",
+      "VNC": "Virtual Network Computing - remote desktop protocol",
+      "PipeWire": "Modern multimedia framework for Linux"
+    }
+  }
+}

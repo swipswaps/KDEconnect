@@ -1,0 +1,40 @@
+# KDE Connect Manager - Python Dependencies
+
+# Web Framework
+Flask==3.0.0
+Flask-SocketIO==5.3.5
+Flask-CORS==4.0.0
+
+# WebSocket
+python-socketio==5.10.0
+python-engineio==4.8.0
+eventlet==0.33.3
+
+# DBus Integration
+dbus-python==1.3.2
+PyGObject==3.46.0
+
+# System Monitoring
+psutil==5.9.6
+
+# SSH and Remote Management
+paramiko==3.4.0
+scp==0.14.5
+
+# CLI
+click==8.1.7
+tabulate==0.9.0
+
+# Utilities
+python-dateutil==2.8.2
+requests==2.31.0
+
+# Logging and Configuration
+python-json-logger==2.0.7
+PyYAML==6.0.1
+
+# Development and Testing (optional)
+pytest==7.4.3
+pytest-cov==4.1.0
+black==23.12.1
+flake8==6.1.0
